@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+    --primary-color: #007bff;
+    --bg-color: #f4f4f9;
+    --card-bg: #ffffff;
+}
+
+body {
+    background-color: var(--bg-color);
+    @apply font-sans;
+}
+
+.editor-container {
+    @apply w-[95%] max-w-[500px] bg-[var(--card-bg)] rounded-[20px] p-5 shadow-[0_10px_25px_rgba(0,0,0,0.1)] mt-5;
+}
+
+canvas {
+    @apply w-full h-auto rounded-[10px] bg-[#eee];
+    touch-action: none; /* Crucial para mobile */
+}
+
+.controls {
+    @apply grid grid-cols-2 gap-2.5 mt-5;
+}
+
+button, .upload-label {
+    @apply p-[15px] border-none rounded-[12px] bg-[var(--primary-color)] text-white font-bold text-center cursor-pointer transition-transform duration-200;
+}
+
+button:active, .upload-label:active { 
+    @apply scale-95; 
+}
+
+/* Custom slider styling */
+input[type="range"] {
+    @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)];
+}
