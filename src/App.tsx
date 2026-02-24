@@ -337,23 +337,25 @@ export default function App() {
     if (!canvas) return;
     
     try {
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      // Usando JPEG para maior compatibilidade com Instagram e WhatsApp no Android
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
       if (!blob) return;
 
-      const name = activeCampaign?.name || 'campanha';
-      const file = new File([blob], `${name.replace(/\s+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
+      const file = new File([blob], `foto-campanha.jpg`, { type: 'image/jpeg' });
       
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        // Em dispositivos móveis (especialmente Android/WhatsApp), enviar 'text' e 'files' juntos 
-        // faz com que a imagem seja ignorada. Portanto, enviamos apenas o arquivo.
         await navigator.share({
-          files: [file]
+          files: [file],
+          title: 'Foto da Campanha'
+          // Omitindo 'text' para evitar que o WhatsApp ignore a imagem
         });
       } else {
+        // Fallback: se falhar, baixa a imagem
         handleDownload();
       }
     } catch (err) {
       console.error('Erro ao compartilhar:', err);
+      // Fallback em caso de cancelamento ou erro
       handleDownload();
     }
   };
@@ -578,7 +580,7 @@ export default function App() {
             
             <button onClick={handleShare} className="flex items-center justify-center gap-2">
               <Share2 size={20} />
-              <span>PARTILHAR</span>
+              <span>ENVIAR FOTO</span>
             </button>
           </div>
 
