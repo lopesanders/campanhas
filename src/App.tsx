@@ -332,51 +332,48 @@ export default function App() {
     link.click();
   };
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleSharePhoto = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
+    setIsProcessing(true);
     try {
-      // 1. Converte o canvas para Blob (JPEG para maior compatibilidade)
+      // 1. Converte o canvas para Blob (JPEG)
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
       if (!blob) throw new Error("Falha ao gerar imagem");
 
-      // 2. Cria um arquivo real a partir do Blob
+      // 2. Cria o arquivo real
       const file = new File([blob], 'minha-foto-campanha.jpg', { 
         type: 'image/jpeg',
         lastModified: Date.now()
       });
 
-      // 3. Primeiro: Força o download (Garantia de que o usuário não perca a foto)
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'minha-foto-campanha.jpg';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      // 4. Segundo: Tenta o compartilhamento nativo
+      // 3. Tenta o compartilhamento nativo PRIMEIRO
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        // Pequeno delay para o download iniciar antes da gaveta abrir
-        setTimeout(async () => {
-          try {
-            await navigator.share({
-              title: 'Minha Foto',
-              text: 'Olha a foto que eu fiz!',
-              files: [file]
-            });
-          } catch (shareErr: any) {
-            if (shareErr.name !== 'AbortError') {
-              console.error('Erro na gaveta de compartilhamento:', shareErr);
-            }
+        try {
+          await navigator.share({
+            title: 'Minha Foto',
+            text: 'Olha a foto que eu fiz!',
+            files: [file]
+          });
+        } catch (shareErr: any) {
+          // Se o erro não for cancelamento, tentamos o download como fallback
+          if (shareErr.name !== 'AbortError') {
+            console.error('Erro no compartilhamento nativo, tentando download:', shareErr);
+            handleDownload();
           }
-        }, 300);
+        }
+      } else {
+        // Se o navegador não suportar compartilhar arquivos, vai direto pro download
+        handleDownload();
       }
     } catch (err: any) {
       console.error('Erro ao processar a imagem:', err);
-      alert("Houve um erro ao gerar sua foto. Tente novamente.");
+      alert("Houve um erro ao gerar sua foto.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -597,9 +594,17 @@ export default function App() {
               <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
             </label>
             
-            <button onClick={handleSharePhoto} className="flex items-center justify-center gap-2">
-              <Share2 size={20} />
-              <span>COMPARTILHAR FOTO</span>
+            <button 
+              onClick={handleSharePhoto} 
+              disabled={isProcessing}
+              className={`flex items-center justify-center gap-2 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isProcessing ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <Share2 size={20} />
+              )}
+              <span>{isProcessing ? 'PROCESSANDO...' : 'COMPARTILHAR FOTO'}</span>
             </button>
           </div>
 
