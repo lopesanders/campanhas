@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState, ChangeEvent } from 'react';
+import React, { useEffect, useRef, useState, ChangeEvent } from 'react';
 import { Download, Share2, Upload, ZoomIn, CreditCard, Loader2, ArrowLeft, Image as ImageIcon, Users, List, Link, Trash2 } from 'lucide-react';
 
 interface ImageState {
@@ -343,11 +343,11 @@ export default function App() {
       const name = activeCampaign?.name || 'campanha';
       const file = new File([blob], `${name.replace(/\s+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
       
-      if (navigator.share && navigator.canShare({ files: [file] })) {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        // Em dispositivos móveis (especialmente Android/WhatsApp), enviar 'text' e 'files' juntos 
+        // faz com que a imagem seja ignorada. Portanto, enviamos apenas o arquivo.
         await navigator.share({
-          files: [file],
-          title: 'Minha Foto de Campanha',
-          text: 'Confira minha foto personalizada!',
+          files: [file]
         });
       } else {
         handleDownload();
