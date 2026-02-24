@@ -337,26 +337,31 @@ export default function App() {
     if (!canvas) return;
     
     try {
-      // Usando JPEG para maior compatibilidade com Instagram e WhatsApp no Android
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
       if (!blob) return;
 
-      const file = new File([blob], `foto-campanha.jpg`, { type: 'image/jpeg' });
+      // Usar um nome de arquivo bem simples e adicionar lastModified resolve bugs em vários aparelhos Android
+      const file = new File([blob], 'imagem.jpg', { 
+        type: 'image/jpeg',
+        lastModified: Date.now()
+      });
       
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Foto da Campanha'
-          // Omitindo 'text' para evitar que o WhatsApp ignore a imagem
+          title: 'Minha Foto',
+          text: 'Olha a minha foto da campanha!' // Adicionando texto para o WhatsApp não dar erro de mensagem vazia
         });
       } else {
-        // Fallback: se falhar, baixa a imagem
         handleDownload();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao compartilhar:', err);
-      // Fallback em caso de cancelamento ou erro
-      handleDownload();
+      // Se o erro não for porque o usuário cancelou a ação, fazemos o download
+      if (err.name !== 'AbortError') {
+        alert("Seu navegador não suporta o envio direto. A foto será baixada para você enviar manualmente.");
+        handleDownload();
+      }
     }
   };
 
