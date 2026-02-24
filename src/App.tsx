@@ -340,28 +340,43 @@ export default function App() {
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
       if (!blob) return;
 
-      // Usar um nome de arquivo bem simples e adicionar lastModified resolve bugs em vários aparelhos Android
-      const file = new File([blob], 'imagem.jpg', { 
+      const file = new File([blob], 'minha-campanha.jpg', { 
         type: 'image/jpeg',
         lastModified: Date.now()
       });
+
+      // 1. PRIMEIRO: Baixar a foto para garantir que o usuário não perca
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'minha-campanha.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Minha Foto',
-          text: 'Olha a minha foto da campanha!' // Adicionando texto para o WhatsApp não dar erro de mensagem vazia
-        });
-      } else {
-        handleDownload();
-      }
+      // 2. SEGUNDO: Tentar abrir a gaveta de compartilhamento
+      // Damos um pequeno atraso para o navegador processar o download antes de abrir a gaveta
+      setTimeout(async () => {
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Minha Foto',
+              text: 'Olha a minha foto da campanha!'
+            });
+          } catch (shareErr: any) {
+            // Ignora erro de cancelamento do usuário
+            if (shareErr.name !== 'AbortError') {
+              console.error('Gaveta de compartilhamento falhou:', shareErr);
+            }
+          }
+        }
+      }, 500);
+
     } catch (err: any) {
-      console.error('Erro ao compartilhar:', err);
-      // Se o erro não for porque o usuário cancelou a ação, fazemos o download
-      if (err.name !== 'AbortError') {
-        alert("Seu navegador não suporta o envio direto. A foto será baixada para você enviar manualmente.");
-        handleDownload();
-      }
+      console.error('Erro ao processar a imagem:', err);
+      alert("Houve um erro ao gerar sua foto. Tente novamente.");
     }
   };
 
@@ -585,7 +600,7 @@ export default function App() {
             
             <button onClick={handleShare} className="flex items-center justify-center gap-2">
               <Share2 size={20} />
-              <span>ENVIAR FOTO</span>
+              <span>COMPARTILHAR FOTO</span>
             </button>
           </div>
 
