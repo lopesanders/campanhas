@@ -54,8 +54,13 @@ app.post("/api/campaigns", async (req, res) => {
     const preference = new Preference(client);
     const campaignId = `camp-${Date.now()}`;
     
-    // Save campaign as 'approved' immediately to avoid webhook issues in preview environments
-    db.prepare('INSERT INTO campaigns (id, name, frame_image, status) VALUES (?, ?, ?, ?)').run(campaignId, name, frame_image, 'approved');
+    // Determine base URL dynamically if APP_URL is not set
+    const host = req.get('host') || '';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const baseUrl = process.env.APP_URL || req.headers.origin || `${protocol}://${host}`;
+    
+    // Save campaign as 'pending' initially. It will be approved via redirect or webhook.
+    db.prepare('INSERT INTO campaigns (id, name, frame_image, status) VALUES (?, ?, ?, ?)').run(campaignId, name, frame_image, 'pending');
 
     const body = {
       items: [
@@ -68,12 +73,12 @@ app.post("/api/campaigns", async (req, res) => {
         }
       ],
       back_urls: {
-        success: `${process.env.APP_URL}/?payment_status=approved&campaign_id=${campaignId}`,
-        failure: `${process.env.APP_URL}/?payment_status=failed`,
-        pending: `${process.env.APP_URL}/?payment_status=pending`,
+        success: `${baseUrl}/?payment_status=approved&campaign_id=${campaignId}`,
+        failure: `${baseUrl}/?payment_status=failed`,
+        pending: `${baseUrl}/?payment_status=pending`,
       },
       auto_return: 'approved',
-      notification_url: process.env.APP_URL ? `${process.env.APP_URL}/api/webhook` : undefined,
+      notification_url: `${baseUrl}/api/webhook`,
       statement_descriptor: 'CAMPANHA_DIGITAL',
       external_reference: campaignId
     };
@@ -111,6 +116,22 @@ app.get("/api/campaigns/:id", (req, res) => {
     } else {
       res.status(404).json({ error: "Campaign not found" });
     }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/campaigns/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (password !== '914614') {
+      return res.status(401).json({ error: "Senha incorreta" });
+    }
+
+    db.prepare('DELETE FROM campaigns WHERE id = ?').run(id);
+    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

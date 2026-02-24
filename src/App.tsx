@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useState, ChangeEvent } from 'react';
-import { Download, Share2, Upload, ZoomIn, CreditCard, Loader2, ArrowLeft, Image as ImageIcon, Users, List, Link } from 'lucide-react';
+import { Download, Share2, Upload, ZoomIn, CreditCard, Loader2, ArrowLeft, Image as ImageIcon, Users, List, Link, Trash2 } from 'lucide-react';
 
 interface ImageState {
   x: number;
@@ -231,6 +231,55 @@ export default function App() {
     }
   };
 
+  const shareCampaignFromList = async (e: React.MouseEvent, camp: any) => {
+    e.stopPropagation(); // Prevent opening the campaign
+    
+    const url = `${window.location.origin}/?c=${camp.id}`;
+    const text = `Participe da campanha: ${camp.name}! Crie sua foto personalizada aqui:`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: camp.name,
+          text: text,
+          url: url
+        });
+      } catch (err) {
+        console.error('Erro ao compartilhar link:', err);
+      }
+    } else {
+      navigator.clipboard.writeText(`${text} ${url}`);
+      alert('Link da campanha copiado para a área de transferência!');
+    }
+  };
+
+  const deleteCampaign = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent opening the campaign
+    
+    const password = prompt("Digite a senha de administrador para excluir esta campanha:");
+    if (!password) return;
+
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        alert("Campanha excluída com sucesso!");
+        fetchCampaigns(); // Refresh the list
+      } else {
+        alert(data.error || "Erro ao excluir campanha.");
+      }
+    } catch (err) {
+      console.error("Error deleting campaign:", err);
+      alert("Erro ao excluir a campanha.");
+    }
+  };
+
   const getEventPos = (e: any) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -440,16 +489,35 @@ export default function App() {
       ) : (
         <div className="w-full space-y-3">
           {campaignsList.map(camp => (
-            <button
+            <div
               key={camp.id}
+              className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all group cursor-pointer"
               onClick={() => selectCampaign(camp.id)}
-              className="w-full flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all text-left"
             >
-              <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600">
-                <List size={24} />
+              <div className="flex items-center gap-4 flex-1">
+                <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600">
+                  <List size={24} />
+                </div>
+                <span className="font-bold text-gray-800 text-lg truncate">{camp.name}</span>
               </div>
-              <span className="font-bold text-gray-800 text-lg">{camp.name}</span>
-            </button>
+              
+              <div className="flex items-center gap-2 ml-4">
+                <button 
+                  onClick={(e) => shareCampaignFromList(e, camp)}
+                  className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  title="Compartilhar"
+                >
+                  <Share2 size={20} />
+                </button>
+                <button 
+                  onClick={(e) => deleteCampaign(e, camp.id)}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Excluir"
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       )}
