@@ -332,55 +332,55 @@ export default function App() {
     link.click();
   };
 
-  const handleShare = async () => {
+  const handleSharePhoto = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     try {
+      // 1. Converte o canvas para Blob (JPEG para maior compatibilidade)
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
-      if (!blob) return;
+      if (!blob) throw new Error("Falha ao gerar imagem");
 
-      const file = new File([blob], 'minha-campanha.jpg', { 
+      // 2. Cria um arquivo real a partir do Blob
+      const file = new File([blob], 'minha-foto-campanha.jpg', { 
         type: 'image/jpeg',
         lastModified: Date.now()
       });
 
-      // 1. PRIMEIRO: Baixar a foto para garantir que o usuário não perca
+      // 3. Primeiro: Força o download (Garantia de que o usuário não perca a foto)
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'minha-campanha.jpg';
+      a.download = 'minha-foto-campanha.jpg';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      // 2. SEGUNDO: Tentar abrir a gaveta de compartilhamento
-      // Damos um pequeno atraso para o navegador processar o download antes de abrir a gaveta
-      setTimeout(async () => {
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // 4. Segundo: Tenta o compartilhamento nativo
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        // Pequeno delay para o download iniciar antes da gaveta abrir
+        setTimeout(async () => {
           try {
             await navigator.share({
-              files: [file],
               title: 'Minha Foto',
-              text: 'Olha a minha foto da campanha!'
+              text: 'Olha a foto que eu fiz!',
+              files: [file]
             });
           } catch (shareErr: any) {
-            // Ignora erro de cancelamento do usuário
             if (shareErr.name !== 'AbortError') {
-              console.error('Gaveta de compartilhamento falhou:', shareErr);
+              console.error('Erro na gaveta de compartilhamento:', shareErr);
             }
           }
-        }
-      }, 500);
-
+        }, 300);
+      }
     } catch (err: any) {
       console.error('Erro ao processar a imagem:', err);
       alert("Houve um erro ao gerar sua foto. Tente novamente.");
     }
   };
 
-  const handleShareCampaign = async () => {
+  const handleShareLink = async () => {
     if (!activeCampaign) return;
     
     const url = `${window.location.origin}/?c=${activeCampaign.id}`;
@@ -397,7 +397,6 @@ export default function App() {
         console.error('Erro ao compartilhar link:', err);
       }
     } else {
-      // Fallback for desktop
       navigator.clipboard.writeText(`${text} ${url}`);
       alert('Link da campanha copiado para a área de transferência!');
     }
@@ -598,7 +597,7 @@ export default function App() {
               <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
             </label>
             
-            <button onClick={handleShare} className="flex items-center justify-center gap-2">
+            <button onClick={handleSharePhoto} className="flex items-center justify-center gap-2">
               <Share2 size={20} />
               <span>COMPARTILHAR FOTO</span>
             </button>
@@ -613,7 +612,7 @@ export default function App() {
           </button>
 
           <button 
-            onClick={handleShareCampaign} 
+            onClick={handleShareLink} 
             className="w-full mt-2 bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2 text-white p-4 rounded-xl font-bold transition-colors shadow-lg"
           >
             <Link size={20} />
