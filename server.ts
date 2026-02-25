@@ -1,26 +1,24 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
-import Database from 'better-sqlite3';
+import { createClient } from '@supabase/supabase-js';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
 
-// Database setup
-const db = new Database('payments.db');
-db.exec(`
-  CREATE TABLE IF NOT EXISTS campaigns (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    frame_image TEXT,
-    status TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+// Supabase setup
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -60,7 +58,13 @@ app.post("/api/campaigns", async (req, res) => {
     const baseUrl = process.env.APP_URL || req.headers.origin || `${protocol}://${host}`;
     
     // Save campaign as 'pending' initially. It will be approved via redirect or webhook.
-    db.prepare('INSERT INTO campaigns (id, name, frame_image, status) VALUES (?, ?, ?, ?)').run(campaignId, name, frame_image, 'pending');
+    const { error: insertError } = await supabase
+      .from('campaigns')
+      .insert([
+        { id: campaignId, name, frame_image, status: 'pending' }
+      ]);
+
+    if (insertError) throw insertError;
 
     const body = {
       items: [
@@ -91,28 +95,43 @@ app.post("/api/campaigns", async (req, res) => {
   }
 });
 
-app.get("/api/campaigns", (req, res) => {
+app.get("/api/campaigns", async (req, res) => {
   try {
-    const rows = db.prepare('SELECT id, name FROM campaigns WHERE status = ? ORDER BY created_at DESC').all('approved');
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('campaigns')
+      .select('id, name')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/api/campaigns/:id", (req, res) => {
+app.get("/api/campaigns/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { force_approve } = req.query;
 
     // If coming from a successful redirect, we can optimistically approve it
     if (force_approve === 'true') {
-      db.prepare('UPDATE campaigns SET status = ? WHERE id = ?').run('approved', id);
+      await supabase
+        .from('campaigns')
+        .update({ status: 'approved' })
+        .eq('id', id);
     }
 
-    const row = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id);
-    if (row) {
-      res.json(row);
+    const { data, error } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    if (data) {
+      res.json(data);
     } else {
       res.status(404).json({ error: "Campaign not found" });
     }
@@ -121,16 +140,21 @@ app.get("/api/campaigns/:id", (req, res) => {
   }
 });
 
-app.delete("/api/campaigns/:id", (req, res) => {
+app.delete("/api/campaigns/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { password } = req.body;
 
-    if (password !== '914614') {
+    if (password !== '914614@mL') {
       return res.status(401).json({ error: "Senha incorreta" });
     }
 
-    db.prepare('DELETE FROM campaigns WHERE id = ?').run(id);
+    const { error } = await supabase
+      .from('campaigns')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -148,7 +172,10 @@ app.post("/api/webhook", async (req, res) => {
       const p = await payment.get({ id: data.id }) as any;
       
       if (p.status === "approved" && p.external_reference) {
-        db.prepare('UPDATE campaigns SET status = ? WHERE id = ?').run('approved', p.external_reference);
+        await supabase
+          .from('campaigns')
+          .update({ status: 'approved' })
+          .eq('id', p.external_reference);
       }
     } catch (error) {
       console.error("Webhook Error:", error);
@@ -160,7 +187,7 @@ app.post("/api/webhook", async (req, res) => {
 
 // Vite middleware for development
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -168,11 +195,20 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static("dist"));
+    // Handle SPA routing: serve index.html for any non-API routes
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
+    });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (process.env.VERCEL !== "1") {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;

@@ -353,9 +353,13 @@ export default function App() {
       // 3. Tenta o compartilhamento nativo PRIMEIRO
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          
           await navigator.share({
             title: 'Minha Foto',
-            text: 'Olha a foto que eu fiz!',
+            // No Android/WhatsApp, enviar texto junto com arquivo faz a imagem ser ignorada.
+            // No iPhone funciona bem. Então removemos o texto se for Android.
+            text: isAndroid ? undefined : 'Olha a foto que eu fiz!',
             files: [file]
           });
         } catch (shareErr: any) {
