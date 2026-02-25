@@ -185,16 +185,28 @@ export default function App() {
 
     setIsPaying(true);
     try {
+      // Check payload size (Vercel limit is 4.5MB)
+      const payloadSize = JSON.stringify({ name: campaignName, frame_image: campaignFrameBase64 }).length;
+      if (payloadSize > 4 * 1024 * 1024) {
+        throw new Error("A imagem da moldura é muito grande. Por favor, use uma imagem menor que 3MB.");
+      }
+
       const res = await fetch('/api/campaigns', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: campaignName, frame_image: campaignFrameBase64 })
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
       
-      // Redirect to Mercado Pago Checkout Pro
-      window.location.href = data.init_point;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        window.location.href = data.init_point;
+      } else {
+        const text = await res.text();
+        console.error("Server returned non-JSON:", text);
+        throw new Error("O servidor retornou um erro inesperado. Verifique se as variáveis de ambiente (Supabase e Mercado Pago) foram configuradas no painel da Vercel.");
+      }
     } catch (err: any) {
       console.error("Payment error:", err);
       alert("Erro ao iniciar pagamento: " + err.message);

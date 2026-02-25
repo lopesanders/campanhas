@@ -16,12 +16,21 @@ const app = express();
 const PORT = 3000;
 
 // Supabase setup
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+let supabaseClient: any = null;
+function getSupabase() {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Supabase configuration (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) is missing in environment variables.");
+    }
+    supabaseClient = createClient(supabaseUrl, supabaseKey);
+  }
+  return supabaseClient;
+}
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '10mb' })); // Vercel limit is 4.5MB anyway
 
 // Mercado Pago lazy initialization
 let mpClient: MercadoPagoConfig | null = null;
@@ -57,6 +66,7 @@ app.post("/api/campaigns", async (req, res) => {
     const protocol = host.includes('localhost') ? 'http' : 'https';
     const baseUrl = process.env.APP_URL || req.headers.origin || `${protocol}://${host}`;
     
+    const supabase = getSupabase();
     // Save campaign as 'pending' initially. It will be approved via redirect or webhook.
     const { error: insertError } = await supabase
       .from('campaigns')
@@ -97,6 +107,7 @@ app.post("/api/campaigns", async (req, res) => {
 
 app.get("/api/campaigns", async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from('campaigns')
       .select('id, name')
@@ -114,6 +125,7 @@ app.get("/api/campaigns/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { force_approve } = req.query;
+    const supabase = getSupabase();
 
     // If coming from a successful redirect, we can optimistically approve it
     if (force_approve === 'true') {
@@ -144,6 +156,7 @@ app.delete("/api/campaigns/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { password } = req.body;
+    const supabase = getSupabase();
 
     if (password !== '914614@mL') {
       return res.status(401).json({ error: "Senha incorreta" });
@@ -170,6 +183,7 @@ app.post("/api/webhook", async (req, res) => {
       const client = getMPClient();
       const payment = new Payment(client);
       const p = await payment.get({ id: data.id }) as any;
+      const supabase = getSupabase();
       
       if (p.status === "approved" && p.external_reference) {
         await supabase
