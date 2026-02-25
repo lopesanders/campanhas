@@ -369,42 +369,37 @@ export default function App() {
     
     setIsProcessing(true);
     try {
-      // 1. Converte o canvas para Blob (JPEG)
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+      // 1. Converte o canvas para Blob (formato PNG para melhor compatibilidade)
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error("Falha ao gerar imagem");
 
       // 2. Cria o arquivo real
-      const file = new File([blob], 'minha-foto-campanha.jpg', { 
-        type: 'image/jpeg',
-        lastModified: Date.now()
-      });
+      const file = new File([blob], 'minha-campanha.png', { type: 'image/png' });
 
-      // 3. Tenta o compartilhamento nativo PRIMEIRO
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // 3. Verifica se o navegador suporta o compartilhamento de arquivos
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
-          const isAndroid = /Android/i.test(navigator.userAgent);
-          
           await navigator.share({
-            title: 'Minha Foto',
-            // No Android/WhatsApp, enviar texto junto com arquivo faz a imagem ser ignorada.
-            // No iPhone funciona bem. Então removemos o texto se for Android.
-            text: isAndroid ? undefined : 'Olha a foto que eu fiz!',
-            files: [file]
+            files: [file],
+            title: 'Minha Campanha',
+            text: 'Olha a foto que eu fiz!', // O Android exige um texto ou título junto ao arquivo
           });
         } catch (shareErr: any) {
           // Se o erro não for cancelamento, tentamos o download como fallback
           if (shareErr.name !== 'AbortError') {
-            console.error('Erro no compartilhamento nativo, tentando download:', shareErr);
+            console.error('Erro no compartilhamento nativo:', shareErr);
             handleDownload();
+            alert("Seu navegador não suporta compartilhamento direto. A imagem foi baixada.");
           }
         }
       } else {
-        // Se o navegador não suportar compartilhar arquivos, vai direto pro download
+        // Caso o navegador não suporte, oferece o download como alternativa
         handleDownload();
+        alert("Seu navegador não suporta compartilhamento direto. A imagem foi baixada.");
       }
     } catch (err: any) {
-      console.error('Erro ao processar a imagem:', err);
-      alert("Houve um erro ao gerar sua foto.");
+      console.error("Error sharing photo:", err);
+      alert("Erro ao compartilhar a foto.");
     } finally {
       setIsProcessing(false);
     }
