@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
 import { createClient } from '@supabase/supabase-js';
 import cors from 'cors';
@@ -8,6 +7,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+// Debug logs for Vercel (will show in Vercel logs, not to user)
+console.log("Server starting...");
+console.log("Environment check:", {
+  hasSupabaseUrl: !!process.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+  hasMPToken: !!process.env.MP_ACCESS_TOKEN,
+  nodeEnv: process.env.NODE_ENV
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,6 +58,16 @@ function getMPClient() {
 }
 
 // API Routes
+app.get("/api/test", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    env: {
+      supabase: !!process.env.VITE_SUPABASE_URL,
+      mp: !!process.env.MP_ACCESS_TOKEN
+    }
+  });
+});
+
 app.post("/api/campaigns", async (req, res) => {
   try {
     const { name, frame_image } = req.body;
@@ -205,6 +223,8 @@ app.post("/api/webhook", async (req, res) => {
 // Vite middleware for development
 async function startServer() {
   if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    // Dynamic import to avoid bundling Vite in production/Vercel
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

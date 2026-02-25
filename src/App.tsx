@@ -214,7 +214,9 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await res.json();
-        if (data.error) throw new Error(data.error);
+        if (data.error) {
+          throw new Error(`${data.error}${data.details ? ' | Detalhes: ' + data.details : ''}`);
+        }
         window.location.href = data.init_point;
       } else {
         const text = await res.text();
