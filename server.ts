@@ -100,8 +100,11 @@ app.post("/api/campaigns", async (req, res) => {
     const result = await preference.create({ body });
     res.json({ id: campaignId, init_point: result.init_point });
   } catch (error: any) {
-    console.error("MP Error:", error);
-    res.status(500).json({ error: error.message });
+    console.error("CRITICAL SERVER ERROR:", error);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.stack?.substring(0, 150)
+    });
   }
 });
 

@@ -164,8 +164,8 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 3 * 1024 * 1024) {
-      alert("A imagem da moldura é muito grande (máximo 3MB). Por favor, use uma imagem mais leve.");
+    if (file.size > 2 * 1024 * 1024) {
+      alert("A imagem da moldura é muito grande (máximo 2MB). Por favor, use uma imagem mais leve.");
       return;
     }
 
@@ -173,11 +173,20 @@ export default function App() {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        if (img.width !== 1080 || img.height !== 1350) {
-          alert("A moldura deve ter exatamente 1080x1350px!");
-          return;
+        // Redimensionar/Comprimir para garantir que caiba no limite da Vercel
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1080;
+        const MAX_HEIGHT = 1350;
+        
+        canvas.width = MAX_WIDTH;
+        canvas.height = MAX_HEIGHT;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, MAX_WIDTH, MAX_HEIGHT);
+          // Exportar como PNG (mantém transparência) mas com tamanho controlado
+          const compressedBase64 = canvas.toDataURL('image/png');
+          setCampaignFrameBase64(compressedBase64);
         }
-        setCampaignFrameBase64(event.target?.result as string);
       };
       img.src = event.target?.result as string;
     };
