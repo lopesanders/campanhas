@@ -164,6 +164,11 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 3 * 1024 * 1024) {
+      alert("A imagem da moldura é muito grande (máximo 3MB). Por favor, use uma imagem mais leve.");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -205,7 +210,8 @@ export default function App() {
       } else {
         const text = await res.text();
         console.error("Server returned non-JSON:", text);
-        throw new Error("O servidor retornou um erro inesperado. Verifique se as variáveis de ambiente (Supabase e Mercado Pago) foram configuradas no painel da Vercel.");
+        const errorSnippet = text.substring(0, 150).replace(/<[^>]*>?/gm, '');
+        throw new Error(`O servidor retornou um erro (${res.status}). Detalhes: ${errorSnippet}... Verifique as variáveis de ambiente na Vercel.`);
       }
     } catch (err: any) {
       console.error("Payment error:", err);
