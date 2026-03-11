@@ -504,6 +504,20 @@ export default function App() {
         </div>
       </div>
 
+      <div className="w-full text-center mb-4">
+        <p className="text-sm text-gray-600">
+          Não tem mercado pago?{' '}
+          <a 
+            href="https://mpago.li/1STZWxi" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-indigo-600 font-semibold hover:underline"
+          >
+            instale aqui
+          </a>
+        </p>
+      </div>
+
       <button 
         onClick={createCampaign} 
         disabled={isPaying || !campaignName || !campaignFrameBase64}
